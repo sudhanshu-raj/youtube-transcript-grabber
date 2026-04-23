@@ -8,7 +8,7 @@
 
 const getCaptionsBtn = document.getElementById("getCaptions");
 const btnText        = document.getElementById("btnText");
-const btnIcon        = document.getElementById("btnIcon");
+
 const statusEl       = document.getElementById("status");
 const statusText     = document.getElementById("statusText");
 const spinner        = document.getElementById("spinner");
@@ -88,7 +88,7 @@ copyBtn.addEventListener("click", async () => {
   if (!outputEl.value) return;
   await navigator.clipboard.writeText(outputEl.value);
   const prev = copyBtn.textContent;
-  copyBtn.textContent = "Copied ✓";
+  copyBtn.textContent = "Copied!";
   setTimeout(() => (copyBtn.textContent = prev), 1500);
 });
 
@@ -102,12 +102,10 @@ clearBtn.addEventListener("click", () => {
 function setLoading(active) {
   getCaptionsBtn.disabled = active;
   if (active) {
-    btnIcon.textContent = "";
     btnText.textContent = "Extracting…";
     setStatus("Enabling captions to capture transcript…", "loading");
     spinner.style.display = "block";
   } else {
-    btnIcon.textContent = "📋";
     btnText.textContent = "Get Transcript";
     spinner.style.display = "none";
   }
@@ -134,11 +132,11 @@ function showResult(transcript, language) {
   const words = transcript.trim().split(/\s+/).filter(Boolean).length;
   wordCount.textContent = `${words.toLocaleString()} words`;
 
-  setStatus(`✓ Transcript extracted successfully`, "success");
+  setStatus(`Transcript extracted successfully`, "success");
 }
 
 function showError(errorMsg) {
-  setStatus(`✗ ${errorMsg}`, "error");
+  setStatus(`${errorMsg}`, "error");
 }
 
 function hideOutput() {

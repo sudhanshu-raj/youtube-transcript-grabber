@@ -4,11 +4,14 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>YouTube Transcript Grabber</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="popup.css" />
   </head>
   <body>
     <div class="header">
-      <div class="logo">▶</div>
+      <div class="logo"></div>
       <div class="header-text">
         <h1>YouTube Transcript</h1>
         <p>Extract full transcripts from any video</p>
@@ -17,7 +20,7 @@
 
     <!-- Not on YouTube -->
     <div class="not-youtube" id="notYouTube">
-      <div class="icon">🎬</div>
+
       <p>Navigate to a <strong>YouTube video</strong> page and click the button to extract the transcript.</p>
     </div>
 
@@ -29,7 +32,6 @@
       </div>
 
       <button id="getCaptions">
-        <span id="btnIcon">📋</span>
         <span id="btnText">Get Transcript</span>
       </button>
 

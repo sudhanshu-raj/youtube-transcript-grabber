@@ -6,7 +6,9 @@
   "permissions": ["activeTab", "scripting", "storage"],
   "host_permissions": [
     "https://www.youtube.com/*",
-    "https://*.youtube.com/*"
+    "https://*.youtube.com/*",
+    "https://fonts.googleapis.com/*",
+    "https://fonts.gstatic.com/*"
   ],
   "action": {
     "default_popup": "popup.html"

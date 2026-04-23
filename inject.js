@@ -97,7 +97,7 @@
 
     if (transcript && transcript.length > 20) {
       const videoId = new URLSearchParams(location.search).get('v');
-      console.log('[YT Transcript] ✓ Captured from:', url.split('?')[0], '| video:', videoId, '| chars:', transcript.length);
+      console.log('[YT Transcript]  Captured from:', url.split('?')[0], '| video:', videoId, '| chars:', transcript.length);
       window.__YT_TX_CACHE__    = transcript;
       window.__YT_TX_VIDEO_ID__ = videoId;
       window.postMessage({ type: 'YT_TRANSCRIPT_DATA', text: transcript, language: 'English' }, '*');

@@ -37,7 +37,7 @@ window.addEventListener('message', (event) => {
   if (type === 'YT_TRANSCRIPT_DATA' && _waitingResult) {
     _waitingResult = false;
     clearTimeout(_timeoutId);
-    console.log('[YT Transcript] ✓ Received transcript, chars:', text?.length);
+    console.log('[YT Transcript] Received transcript, chars:', text?.length);
     chrome.runtime.sendMessage({ type: 'TRANSCRIPT_RESULT', transcript: text, language });
   }
 
