@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>YouTube Transcript Grabber</title>
+    <link rel="stylesheet" href="popup.css" />
+  </head>
+  <body>
+    <div class="header">
+      <div class="logo">▶</div>
+      <div class="header-text">
+        <h1>YouTube Transcript</h1>
+        <p>Extract full transcripts from any video</p>
+      </div>
+    </div>
+
+    <!-- Not on YouTube -->
+    <div class="not-youtube" id="notYouTube">
+      <div class="icon">🎬</div>
+      <p>Navigate to a <strong>YouTube video</strong> page and click the button to extract the transcript.</p>
+    </div>
+
+    <!-- Main UI -->
+    <div class="body" id="mainBody">
+      <div class="video-info" id="videoInfo">
+        <div class="dot"></div>
+        <span id="videoInfoText">YouTube video detected</span>
+      </div>
+
+      <button id="getCaptions">
+        <span id="btnIcon">📋</span>
+        <span id="btnText">Get Transcript</span>
+      </button>
+
+      <div class="status" id="status">
+        <div class="spinner" id="spinner" style="display:none"></div>
+        <span id="statusText"></span>
+      </div>
+
+      <div class="output-container" id="outputContainer">
+        <div class="output-header">
+          <span class="output-label" id="outputLabel">Transcript</span>
+          <div class="output-actions">
+            <button class="btn-small" id="copyBtn">Copy</button>
+            <button class="btn-small" id="clearBtn">Clear</button>
+          </div>
+        </div>
+        <textarea id="output" readonly placeholder="Transcript will appear here…"></textarea>
+      </div>
+    </div>
+
+    <div class="footer" id="footer" style="display:none">
+      <span class="word-count" id="wordCount"></span>
+    </div>
+
+    <script src="popup.js"></script>
+  </body>
+</html>
