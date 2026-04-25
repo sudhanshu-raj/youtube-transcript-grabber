@@ -11,7 +11,6 @@ let pendingResult = null;
 
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   if (msg.type === "TRANSCRIPT_RESULT" || msg.type === "TRANSCRIPT_ERROR") {
-    // Store latest result
     pendingResult = msg;
 
     // Try to forward to any open popup — if it's closed this is a no-op

@@ -10,6 +10,15 @@
  *  4. 12-second timeout at each stage with clear error messages
  */
 
+const logger = (() => {
+  const ENABLE_LOGS = false; 
+  const noop = () => {};
+  return ENABLE_LOGS
+    ? { debug: console.debug.bind(console), warn: console.warn.bind(console), log: console.log.bind(console), info: console.info.bind(console), error: console.error.bind(console) }
+    : { debug: noop, warn: noop, log: noop, info: noop, error: noop };
+})();
+
+
 let _hookInjected = false;    // have we injected inject.js yet?
 let _waitingResult = false;   // are we currently waiting for a transcript?
 let _timeoutId    = null;
@@ -23,7 +32,7 @@ function onYouTubeNavigate() {
     _hookInjected = false;   // force re-inject so hooks run fresh for new video
     _waitingResult = false;
     clearTimeout(_timeoutId);
-    console.log('[YT Transcript] Navigation to new video detected:', newId);
+    logger.debug('[YT Transcript] Navigation to new video detected:', newId);
   }
 }
 window.addEventListener('yt-navigate-finish', onYouTubeNavigate); // YouTube SPA event
@@ -37,13 +46,13 @@ window.addEventListener('message', (event) => {
   if (type === 'YT_TRANSCRIPT_DATA' && _waitingResult) {
     _waitingResult = false;
     clearTimeout(_timeoutId);
-    console.log('[YT Transcript] Received transcript, chars:', text?.length);
+    logger.debug('[YT Transcript] Received transcript, chars:', text?.length);
     chrome.runtime.sendMessage({ type: 'TRANSCRIPT_RESULT', transcript: text, language });
   }
 
   if (type === 'YT_CACHE_EMPTY') {
     // Hook is live but no cached data — trigger the CC button
-    console.log('[YT Transcript] Cache empty — toggling CC button to trigger fetch…');
+    logger.debug('[YT Transcript] Cache empty — toggling CC button to trigger fetch…');
     triggerCCButton();
   }
 });
@@ -53,11 +62,11 @@ chrome.runtime.onMessage.addListener((msg) => {
   if (msg.type !== 'GET_TRANSCRIPT') return;
 
   if (_waitingResult) {
-    console.log('[YT Transcript] Already waiting, ignoring duplicate request.');
+    logger.debug('[YT Transcript] Already waiting, ignoring duplicate request.');
     return;
   }
 
-  console.log('[YT Transcript] GET_TRANSCRIPT received.');
+  logger.debug('[YT Transcript] GET_TRANSCRIPT received.');
   _waitingResult = true;
   startTimeout('Timed out waiting for inject.js to load.');
 
@@ -89,7 +98,7 @@ function injectHook(onReady) {
   script.id = '__yt_tx_hook__';
   script.src = chrome.runtime.getURL('inject.js');
   script.onload = () => {
-    console.log('[YT Transcript] inject.js loaded, hook active.');
+    logger.debug('[YT Transcript] inject.js loaded, hook active.');
     script.remove();
     if (onReady) onReady();
   };
@@ -108,7 +117,7 @@ function injectHook(onReady) {
 function triggerCCButton() {
   const btn = document.querySelector('.ytp-subtitles-button');
   if (!btn) {
-    console.warn('[YT Transcript] CC button not found.');
+    logger.warn('[YT Transcript] CC button not found.');
     chrome.runtime.sendMessage({
       type: 'TRANSCRIPT_ERROR',
       error: 'Subtitles button not found. Make sure a video is playing and wait for the player to fully load.',
@@ -119,7 +128,7 @@ function triggerCCButton() {
   }
 
   const isOn = btn.getAttribute('aria-pressed') === 'true';
-  console.log('[YT Transcript] CC button found, aria-pressed=' + isOn + '. Toggling…');
+  logger.debug('[YT Transcript] CC button found, aria-pressed=' + isOn + '. Toggling…');
 
   if (isOn) {
     btn.click();

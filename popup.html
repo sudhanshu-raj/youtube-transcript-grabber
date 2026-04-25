@@ -44,11 +44,13 @@
         <div class="output-header">
           <span class="output-label" id="outputLabel">Transcript</span>
           <div class="output-actions">
+            <button class="btn-small" id="toggleViewBtn">Plain Text</button>
             <button class="btn-small" id="copyBtn">Copy</button>
             <button class="btn-small" id="clearBtn">Clear</button>
           </div>
         </div>
-        <textarea id="output" readonly placeholder="Transcript will appear here…"></textarea>
+        <div id="transcriptView" class="transcript-view"></div>
+        <textarea id="output" readonly placeholder="Transcript will appear here…" style="display:none"></textarea>
       </div>
     </div>
 

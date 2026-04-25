@@ -9,9 +9,18 @@
  * Guards prevent double-hooking if injected more than once.
  * Cache is stored on window so it survives re-injections.
  */
+
+const logger = (() => {
+  const ENABLE_LOGS = false; 
+  const noop = () => {};
+  return ENABLE_LOGS
+    ? { debug: console.debug.bind(console), warn: console.warn.bind(console), log: console.log.bind(console), info: console.info.bind(console), error: console.error.bind(console) }
+    : { debug: noop, warn: noop, log: noop, info: noop, error: noop };
+})();
+
 (function () {
 
-  // ── 1. Set up fetch + XHR hooks (once only) ──────────────────────────────
+  // 1. Set up fetch + XHR hooks (once only) 
   if (!window.__YT_HOOK_SET__) {
     window.__YT_HOOK_SET__ = true;
     window.__YT_TX_CACHE__    = null;
@@ -53,17 +62,16 @@
     PatchedXHR.prototype = _XHR.prototype;
     window.XMLHttpRequest = PatchedXHR;
 
-    console.log('[YT Transcript] fetch + XHR hooks installed.');
+    logger.debug('[YT Transcript] fetch + XHR hooks installed.');
   }
 
-  // ── 2. Message listener (add once, guarded by flag) ───────────────────────
+  // 2. Message listener (add once, guarded by flag) 
   if (!window.__YT_MSG_LISTENER__) {
     window.__YT_MSG_LISTENER__ = true;
 
     window.addEventListener('message', (e) => {
       if (e.source !== window || !e.data) return;
 
-      // content.js is asking: do we have cached data?
       if (e.data.type === 'YT_QUERY_CACHE') {
         const currentId = new URLSearchParams(location.search).get('v');
         const cacheValid = window.__YT_TX_CACHE__ && window.__YT_TX_VIDEO_ID__ === currentId;
@@ -83,7 +91,7 @@
     });
   }
 
-  // ── 3. Parse helpers ──────────────────────────────────────────────────────
+  // 3. Parse helpers 
   async function processClone(clone, url) {
     try {
       processText(await clone.text(), url);
@@ -93,14 +101,15 @@
   function processText(raw, url) {
     if (!raw || raw.trim().length < 10) return;
 
-    let transcript = tryJson3(raw) || tryXml(raw);
+    let segments = tryJson3(raw) || tryXml(raw);
 
-    if (transcript && transcript.length > 20) {
+    if (segments && segments.length > 0) {
       const videoId = new URLSearchParams(location.search).get('v');
-      console.log('[YT Transcript]  Captured from:', url.split('?')[0], '| video:', videoId, '| chars:', transcript.length);
-      window.__YT_TX_CACHE__    = transcript;
+      const serialized = JSON.stringify(segments);
+      logger.debug('[YT Transcript] Captured from:', url.split('?')[0], '| video:', videoId, '| segments:', segments.length);
+      window.__YT_TX_CACHE__    = serialized;
       window.__YT_TX_VIDEO_ID__ = videoId;
-      window.postMessage({ type: 'YT_TRANSCRIPT_DATA', text: transcript, language: 'English' }, '*');
+      window.postMessage({ type: 'YT_TRANSCRIPT_DATA', text: serialized, language: 'English' }, '*');
     }
   }
 
@@ -108,13 +117,19 @@
     try {
       const data = JSON.parse(raw);
       if (!Array.isArray(data.events)) return null;
-      const parts = [];
+      const segments = [];
       for (const ev of data.events) {
         if (!Array.isArray(ev.segs)) continue;
-        const seg = ev.segs.map(s => (s.utf8 || '').replace(/\n/g, ' ')).join('').trim();
-        if (seg) parts.push(seg);
+        const text = ev.segs.map(s => (s.utf8 || '').replace(/\n/g, ' ')).join('').trim();
+        if (text) {
+          segments.push({
+            start: typeof ev.tStartMs === 'number' ? ev.tStartMs / 1000 : null,
+            dur:   typeof ev.dDurationMs === 'number' ? ev.dDurationMs / 1000 : null,
+            text
+          });
+        }
       }
-      return parts.length ? parts.join(' ').replace(/\s{2,}/g, ' ').trim() : null;
+      return segments.length ? segments : null;
     } catch (_) { return null; }
   }
 
@@ -124,9 +139,21 @@
       const nodes = doc.querySelectorAll('text');
       if (!nodes.length) return null;
       const tmp = document.createElement('div');
-      let out = '';
-      nodes.forEach(n => { tmp.innerHTML = n.textContent; out += (tmp.textContent || '') + ' '; });
-      return out.replace(/\s{2,}/g, ' ').trim() || null;
+      const segments = [];
+      nodes.forEach(n => {
+        tmp.innerHTML = n.textContent;
+        const text = (tmp.textContent || '').trim();
+        if (text) {
+          const start = parseFloat(n.getAttribute('start'));
+          const dur   = parseFloat(n.getAttribute('dur'));
+          segments.push({
+            start: isNaN(start) ? null : start,
+            dur:   isNaN(dur)   ? null : dur,
+            text
+          });
+        }
+      });
+      return segments.length ? segments : null;
     } catch (_) { return null; }
   }
 

@@ -1,30 +1,36 @@
 /**
  * popup.js — Controls the extension popup UI.
  *
- * On open:  checks if current tab is a YouTube video page.
- * On click: sends GET_TRANSCRIPT to content.js via chrome.tabs.sendMessage,
- *           then listens for TRANSCRIPT_RESULT or TRANSCRIPT_ERROR from background.js.
+ * Transcript data is now a JSON array of { start, dur, text } segments.
+ * We group them into ~5-second paragraphs and render with timestamp badges.
+ * A "Plain Text" toggle switches to the raw textarea for easy copying.
  */
 
-const getCaptionsBtn = document.getElementById("getCaptions");
-const btnText        = document.getElementById("btnText");
+const getCaptionsBtn   = document.getElementById("getCaptions");
+const btnText          = document.getElementById("btnText");
 
-const statusEl       = document.getElementById("status");
-const statusText     = document.getElementById("statusText");
-const spinner        = document.getElementById("spinner");
-const outputContainer = document.getElementById("outputContainer");
-const outputEl       = document.getElementById("output");
-const outputLabel    = document.getElementById("outputLabel");
-const copyBtn        = document.getElementById("copyBtn");
-const clearBtn       = document.getElementById("clearBtn");
-const wordCount      = document.getElementById("wordCount");
-const footer         = document.getElementById("footer");
-const mainBody       = document.getElementById("mainBody");
-const notYouTube     = document.getElementById("notYouTube");
-const videoInfo      = document.getElementById("videoInfo");
-const videoInfoText  = document.getElementById("videoInfoText");
+const statusEl         = document.getElementById("status");
+const statusText       = document.getElementById("statusText");
+const spinner          = document.getElementById("spinner");
+const outputContainer  = document.getElementById("outputContainer");
+const outputEl         = document.getElementById("output");
+const transcriptView   = document.getElementById("transcriptView");
+const outputLabel      = document.getElementById("outputLabel");
+const copyBtn          = document.getElementById("copyBtn");
+const clearBtn         = document.getElementById("clearBtn");
+const toggleViewBtn    = document.getElementById("toggleViewBtn");
+const wordCount        = document.getElementById("wordCount");
+const footer           = document.getElementById("footer");
+const mainBody         = document.getElementById("mainBody");
+const notYouTube       = document.getElementById("notYouTube");
+const videoInfo        = document.getElementById("videoInfo");
+const videoInfoText    = document.getElementById("videoInfoText");
 
-// On popup open: detect current tab 
+// State
+let _plainText  = '';    // flat plain text for copy & plain view
+let _isPlain    = false; // currently showing plain-text view?
+
+// On popup open: detect current tab
 (async () => {
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
 
@@ -33,21 +39,20 @@ const videoInfoText  = document.getElementById("videoInfoText");
     tab?.url?.includes("youtube.com/shorts");
 
   if (!isYouTubeVideo) {
-    mainBody.style.display   = "none";
+    mainBody.style.display  = "none";
     notYouTube.classList.add("visible");
     return;
   }
 
-  // Show video info
   videoInfo.classList.add("visible");
   try {
     const title = tab.title?.replace(" - YouTube", "").trim();
     videoInfoText.textContent = title || "YouTube video detected";
   } catch (_) {}
 
-  // Checking if background has a pending result from a previous extraction
+  // Check if background has a pending result
   chrome.runtime.sendMessage({ type: "POPUP_READY" }, (response) => {
-    if (chrome.runtime.lastError) return; // background not ready yet
+    if (chrome.runtime.lastError) return;
     if (response?.type === "TRANSCRIPT_RESULT") {
       showResult(response.transcript, response.language);
     } else if (response?.type === "TRANSCRIPT_ERROR") {
@@ -56,7 +61,7 @@ const videoInfoText  = document.getElementById("videoInfoText");
   });
 })();
 
-// Button click: request transcript 
+// Button click 
 getCaptionsBtn.addEventListener("click", async () => {
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
   if (!tab?.id) return;
@@ -83,10 +88,24 @@ chrome.runtime.onMessage.addListener((msg) => {
   }
 });
 
-//  Copy button 
+// Toggle between timestamp view and plain-text view 
+toggleViewBtn.addEventListener("click", () => {
+  _isPlain = !_isPlain;
+  if (_isPlain) {
+    transcriptView.style.display = "none";
+    outputEl.style.display       = "block";
+    toggleViewBtn.textContent    = "Timestamps";
+  } else {
+    outputEl.style.display       = "none";
+    transcriptView.style.display = "block";
+    toggleViewBtn.textContent    = "Plain Text";
+  }
+});
+
+// Copy button 
 copyBtn.addEventListener("click", async () => {
-  if (!outputEl.value) return;
-  await navigator.clipboard.writeText(outputEl.value);
+  if (!_plainText) return;
+  await navigator.clipboard.writeText(_plainText);
   const prev = copyBtn.textContent;
   copyBtn.textContent = "Copied!";
   setTimeout(() => (copyBtn.textContent = prev), 1500);
@@ -98,7 +117,115 @@ clearBtn.addEventListener("click", () => {
   setStatus("", "");
 });
 
-//  Helper functions 
+// Helper: format seconds → [mm:ss] 
+function formatTime(seconds) {
+  if (seconds === null || isNaN(seconds)) return null;
+  const m = Math.floor(seconds / 60);
+  const s = Math.floor(seconds % 60);
+  return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+}
+
+// Helper: group segments into paragraphs (~N seconds each) 
+const GROUP_SECONDS = 30;
+
+function groupSegments(segments) {
+  if (!segments.length) return [];
+
+  const groups = [];
+  let current  = null;
+
+  for (const seg of segments) {
+    const start = seg.start ?? 0;
+    if (!current || (seg.start !== null && start - current.startSec >= GROUP_SECONDS)) {
+      current = { startSec: start, startFmt: formatTime(start), lines: [] };
+      groups.push(current);
+    }
+    current.lines.push(seg.text);
+  }
+
+  return groups;
+}
+
+// Render segments into the transcript-view div 
+function renderSegments(segments, language) {
+  transcriptView.innerHTML = '';
+
+  const hasTimestamps = segments.some(s => s.start !== null);
+  const groups = hasTimestamps ? groupSegments(segments) : [{ startSec: null, startFmt: null, lines: segments.map(s => s.text) }];
+
+  groups.forEach((group) => {
+    const block = document.createElement('div');
+    block.className = 'tx-block';
+
+    if (group.startFmt) {
+      const stamp = document.createElement('span');
+      stamp.className = 'tx-stamp';
+      stamp.textContent = group.startFmt;
+      block.appendChild(stamp);
+    }
+
+    const para = document.createElement('p');
+    para.className = 'tx-para';
+    para.textContent = group.lines.join(' ');
+    block.appendChild(para);
+
+    transcriptView.appendChild(block);
+  });
+}
+
+// Main show/hide helpers 
+function showResult(transcriptRaw, language) {
+  let segments = null;
+  try {
+    const parsed = JSON.parse(transcriptRaw);
+    if (Array.isArray(parsed) && parsed.length && typeof parsed[0] === 'object') {
+      segments = parsed;
+    }
+  } catch (_) {}
+
+  if (segments) {
+    _plainText = segments.map(s => s.text).join(' ').replace(/\s{2,}/g, ' ').trim();
+  } else {
+    _plainText = typeof transcriptRaw === 'string' ? transcriptRaw : '';
+  }
+
+  outputEl.value = _plainText;
+  outputLabel.textContent = `Transcript${language ? ` (${language})` : ""}`;
+
+  if (segments) {
+    renderSegments(segments, language);
+  } else {
+    transcriptView.innerHTML = `<div class="tx-block"><p class="tx-para">${_plainText}</p></div>`;
+  }
+
+  // Default: show timestamp view
+  _isPlain = false;
+  transcriptView.style.display = "block";
+  outputEl.style.display       = "none";
+  toggleViewBtn.textContent    = "Plain Text";
+
+  outputContainer.classList.add("visible");
+  footer.style.display = "flex";
+
+  const words = _plainText.trim().split(/\s+/).filter(Boolean).length;
+  wordCount.textContent = `${words.toLocaleString()} words`;
+
+  setStatus("Transcript extracted successfully", "success");
+}
+
+function showError(errorMsg) {
+  setStatus(`${errorMsg}`, "error");
+}
+
+function hideOutput() {
+  _plainText             = '';
+  outputEl.value         = '';
+  transcriptView.innerHTML = '';
+  outputContainer.classList.remove("visible");
+  footer.style.display   = "none";
+  _isPlain = false;
+}
+
 function setLoading(active) {
   getCaptionsBtn.disabled = active;
   if (active) {
@@ -121,26 +248,4 @@ function setStatus(text, type) {
   if (!text) {
     statusEl.classList.remove("visible");
   }
-}
-
-function showResult(transcript, language) {
-  outputEl.value = transcript;
-  outputLabel.textContent = `Transcript${language ? ` (${language})` : ""}`;
-  outputContainer.classList.add("visible");
-  footer.style.display = "flex";
-
-  const words = transcript.trim().split(/\s+/).filter(Boolean).length;
-  wordCount.textContent = `${words.toLocaleString()} words`;
-
-  setStatus(`Transcript extracted successfully`, "success");
-}
-
-function showError(errorMsg) {
-  setStatus(`${errorMsg}`, "error");
-}
-
-function hideOutput() {
-  outputEl.value = "";
-  outputContainer.classList.remove("visible");
-  footer.style.display = "none";
 }
