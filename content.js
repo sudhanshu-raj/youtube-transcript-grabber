@@ -19,8 +19,8 @@ const logger = (() => {
 })();
 
 
-let _hookInjected = false;    // have we injected inject.js yet?
-let _waitingResult = false;   // are we currently waiting for a transcript?
+let _hookInjected = false;   
+let _waitingResult = false;  
 let _timeoutId    = null;
 let _lastVideoId  = new URLSearchParams(location.search).get('v') || '';
 
@@ -29,14 +29,14 @@ function onYouTubeNavigate() {
   const newId = new URLSearchParams(location.search).get('v') || '';
   if (newId && newId !== _lastVideoId) {
     _lastVideoId  = newId;
-    _hookInjected = false;   // force re-inject so hooks run fresh for new video
+    _hookInjected = false;   
     _waitingResult = false;
     clearTimeout(_timeoutId);
     logger.debug('[YT Transcript] Navigation to new video detected:', newId);
   }
 }
-window.addEventListener('yt-navigate-finish', onYouTubeNavigate); // YouTube SPA event
-window.addEventListener('popstate', onYouTubeNavigate);            // fallback
+window.addEventListener('yt-navigate-finish', onYouTubeNavigate); 
+window.addEventListener('popstate', onYouTubeNavigate);          
 
 // Persistent window message listener 
 window.addEventListener('message', (event) => {
@@ -51,7 +51,6 @@ window.addEventListener('message', (event) => {
   }
 
   if (type === 'YT_CACHE_EMPTY') {
-    // Hook is live but no cached data — trigger the CC button
     logger.debug('[YT Transcript] Cache empty — toggling CC button to trigger fetch…');
     triggerCCButton();
   }
@@ -71,15 +70,11 @@ chrome.runtime.onMessage.addListener((msg) => {
   startTimeout('Timed out waiting for inject.js to load.');
 
   if (_hookInjected) {
-    // Hook already in page — ask for cached data first
     window.postMessage({ type: 'YT_QUERY_CACHE' }, '*');
-    // If cache is empty, YT_CACHE_EMPTY listener above will trigger CC
   } else {
     _hookInjected = true;
     injectHook(() => {
-      // Hook is now live — check cache, if we already have this transcript then will get that directly
       window.postMessage({ type: 'YT_QUERY_CACHE' }, '*');
-      // Trigger CC after a short delay to let the hook settle and check if we got result or not  
       setTimeout(() => {
         if (_waitingResult) {        
           triggerCCButton();

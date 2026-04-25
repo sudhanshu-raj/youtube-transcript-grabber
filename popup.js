@@ -26,9 +26,8 @@ const notYouTube       = document.getElementById("notYouTube");
 const videoInfo        = document.getElementById("videoInfo");
 const videoInfoText    = document.getElementById("videoInfoText");
 
-// State
-let _plainText  = '';    // flat plain text for copy & plain view
-let _isPlain    = false; // currently showing plain-text view?
+let _plainText  = '';    
+let _isPlain    = false;
 
 // On popup open: detect current tab
 (async () => {

@@ -13,14 +13,12 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   if (msg.type === "TRANSCRIPT_RESULT" || msg.type === "TRANSCRIPT_ERROR") {
     pendingResult = msg;
 
-    // Try to forward to any open popup — if it's closed this is a no-op
-    chrome.runtime.sendMessage(msg).catch(() => {
-      // Popup not open; result is stored in pendingResult for next open
-    });
+    // Try to forward to any open popup, if it's closed just ingore bcz we storing it pendingResult
+    // which will send when on the lisener POPUP_READY 
+    chrome.runtime.sendMessage(msg).catch(() => {});
   }
 
   if (msg.type === "POPUP_READY") {
-    // Popup just opened and is asking for any pending result
     if (pendingResult) {
       sendResponse(pendingResult);
       pendingResult = null;
